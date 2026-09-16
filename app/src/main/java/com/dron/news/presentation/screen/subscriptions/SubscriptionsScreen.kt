@@ -67,11 +67,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-//import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.net.Uri
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.net.toUri
 import coil3.compose.SubcomposeAsyncImage
 import com.dron.news.domain.entity.Article
@@ -84,231 +99,258 @@ import java.util.Locale
 @Composable
 fun SubscriptionsScreen(
     viewModel: SubscriptionsViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     var isAddingTopic by remember { mutableStateOf(false) }
     var isManagingTopics by remember { mutableStateOf(false) }
 
+    // ✅ Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+
+// ✅ Отслеживаем переход состояния
+    var wasRefreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.isRefreshing) {
+        if (state.isRefreshing) {
+            wasRefreshing = true
+        } else if (wasRefreshing) {
+            wasRefreshing = false
+            if (state.articles.isNotEmpty()) {
+                snackbarHostState.showSnackbar(
+                    message = "Обновлено: ${state.articles.size} новостей",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
     val selectedTopicsCount = state.selectedTopics.size
     val articlesCount = state.articles.size
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    // ✅ Оборачиваем в Scaffold для Snackbar
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 20.dp,
-                top = 20.dp,
-                end = 20.dp,
-                bottom = 100.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
 
-            // ------------------------------------------------------------
-            // ШАПКА
-            // ------------------------------------------------------------
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    top = 20.dp,
+                    end = 20.dp,
+                    bottom = 100.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
 
-            item {
-                FeedHeader(
-                    onRefresh = {
-                        viewModel.processCommand(
-                            SubscriptionCommand.RefreshData
-                        )
-                    }
-                )
-            }
-
-            // ------------------------------------------------------------
-            // СТАТИСТИКА ЛЕНТЫ
-            // ------------------------------------------------------------
-
-            item {
-                FeedOverviewCard(
-                    topicsCount = selectedTopicsCount,
-                    articlesCount = articlesCount
-                )
-            }
-
-            // ------------------------------------------------------------
-            // ТЕМЫ
-            // ------------------------------------------------------------
-
-            item {
-                TopicsSection(
-                    state = state,
-                    isManagingTopics = isManagingTopics,
-                    onManageClick = {
-                        isManagingTopics = !isManagingTopics
-                    },
-                    onAddTopicClick = {
-                        isAddingTopic = true
-                    },
-                    onToggleTopic = { topic ->
-                        viewModel.processCommand(
-                            SubscriptionCommand.ToggleTopicSelection(topic)
-                        )
-                    },
-                    onRemoveTopic = { topic ->
-                        viewModel.processCommand(
-                            SubscriptionCommand.RemoveSubscription(topic)
-                        )
-                    }
-                )
-            }
-
-            // ------------------------------------------------------------
-            // ДОБАВЛЕНИЕ ТЕМЫ
-            // ------------------------------------------------------------
-
-
-
-            // ------------------------------------------------------------
-            // НОВОСТИ
-            // ------------------------------------------------------------
-
-            item {
-                SectionHeader(
-                    title = "Последние новости",
-                    subtitle = if (articlesCount > 0) {
-                        "$articlesCount новостей"
-                    } else {
-                        "Персональная лента для вас"
-                    }
-                )
-            }
-
-            if (state.articles.isEmpty()) {
+                // ------------------------------------------------------------
+                // ШАПКА
+                // ------------------------------------------------------------
 
                 item {
-                    EmptyFeedCard(
-                        hasSubscriptions = state.subscriptions.isNotEmpty(),
+                    FeedHeader(
                         onRefresh = {
+                            viewModel.processCommand(SubscriptionCommand.RefreshData)
+                        },
+                        onNavigateToSettings = onNavigateToSettings,
+                        isRefreshing = state.isRefreshing  // ← ПЕРЕДАЁМ
+                    )
+                }
+
+                // ------------------------------------------------------------
+                // СТАТИСТИКА ЛЕНТЫ
+                // ------------------------------------------------------------
+
+                item {
+                    FeedOverviewCard(
+                        topicsCount = selectedTopicsCount,
+                        articlesCount = articlesCount
+                    )
+                }
+
+                // ------------------------------------------------------------
+                // ТЕМЫ
+                // ------------------------------------------------------------
+
+                item {
+                    TopicsSection(
+                        state = state,
+                        isManagingTopics = isManagingTopics,
+                        onManageClick = {
+                            isManagingTopics = !isManagingTopics
+                        },
+                        onAddTopicClick = {
+                            isAddingTopic = true
+                        },
+                        onToggleTopic = { topic ->
                             viewModel.processCommand(
-                                SubscriptionCommand.RefreshData
+                                SubscriptionCommand.ToggleTopicSelection(topic)
+                            )
+                        },
+                        onRemoveTopic = { topic ->
+                            viewModel.processCommand(
+                                SubscriptionCommand.RemoveSubscription(topic)
                             )
                         }
                     )
                 }
 
-            } else {
+                // ------------------------------------------------------------
+                // ДОБАВЛЕНИЕ ТЕМЫ
+                // ------------------------------------------------------------
 
-                // Первая статья — главная
+
+                // ------------------------------------------------------------
+                // НОВОСТИ
+                // ------------------------------------------------------------
 
                 item {
-                    FeaturedArticleCard(
-                        article = state.articles.first()
+                    SectionHeader(
+                        title = "Последние новости",
+                        subtitle = if (articlesCount > 0) {
+                            "$articlesCount новостей"
+                        } else {
+                            "Персональная лента для вас"
+                        }
                     )
                 }
 
-                // Остальные новости
+                if (state.articles.isEmpty()) {
 
-                itemsIndexed(
-                    items = state.articles.drop(1),
-                    key = { index, article ->
-                        "${article.url}-$index"
+                    item {
+                        EmptyFeedCard(
+                            hasSubscriptions = state.subscriptions.isNotEmpty(),
+                            onRefresh = {
+                                viewModel.processCommand(
+                                    SubscriptionCommand.RefreshData
+                                )
+                            }
+                        )
                     }
-                ) { _, article ->
 
-                    ArticleCard(
-                        article = article
-                    )
+                } else {
+
+                    // Первая статья — главная
+
+                    item {
+                        FeaturedArticleCard(
+                            article = state.articles.first()
+                        )
+                    }
+
+                    // Остальные новости
+
+                    itemsIndexed(
+                        items = state.articles.drop(1),
+                        key = { index, article ->
+                            "${article.url}-$index"
+                        }
+                    ) { _, article ->
+
+                        ArticleCard(
+                            article = article
+                        )
+                    }
                 }
             }
-        }
 
-        // ------------------------------------------------------------
-        // ПЛАВАЮЩАЯ КНОПКА
-        // ------------------------------------------------------------
+            // ------------------------------------------------------------
+            // ПЛАВАЮЩАЯ КНОПКА
+            // ------------------------------------------------------------
 
-        AnimatedVisibility(
-            visible = isAddingTopic,
+            AnimatedVisibility(
+                visible = isAddingTopic,
 
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(
-                    start = 20.dp,
-                    end = 20.dp,
-                    bottom = 20.dp +
-                            WindowInsets.navigationBars
-                                .asPaddingValues()
-                                .calculateBottomPadding()
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = 20.dp,
+                        end = 20.dp,
+                        bottom = 20.dp +
+                                WindowInsets.navigationBars
+                                    .asPaddingValues()
+                                    .calculateBottomPadding()
+                    ),
+
+                enter = fadeIn(
+                    animationSpec = tween(220)
+                ) + scaleIn(
+                    initialScale = 0.97f,
+                    animationSpec = tween(220)
                 ),
 
-            enter = fadeIn(
-                animationSpec = tween(220)
-            ) + scaleIn(
-                initialScale = 0.97f,
-                animationSpec = tween(220)
-            ),
+                exit = fadeOut(
+                    animationSpec = tween(160)
+                ) + scaleOut(
+                    targetScale = 0.97f,
+                    animationSpec = tween(160)
+                )
+            ) {
 
-            exit = fadeOut(
-                animationSpec = tween(160)
-            ) + scaleOut(
-                targetScale = 0.97f,
-                animationSpec = tween(160)
-            )
-        ) {
+                AddTopicPanel(
+                    query = state.query,
+                    enabled = state.query.isNotBlank(),
 
-            AddTopicPanel(
-                query = state.query,
-                enabled = state.query.isNotBlank(),
-
-                onQueryChange = { query ->
-                    viewModel.processCommand(
-                        SubscriptionCommand.InputTopic(query)
-                    )
-                },
-
-                onSubscribe = {
-                    if (state.query.isNotBlank()) {
-
+                    onQueryChange = { query ->
                         viewModel.processCommand(
-                            SubscriptionCommand.ClickSubscribe
+                            SubscriptionCommand.InputTopic(query)
+                        )
+                    },
+
+                    onSubscribe = {
+                        if (state.query.isNotBlank()) {
+
+                            viewModel.processCommand(
+                                SubscriptionCommand.ClickSubscribe
+                            )
+
+                            isAddingTopic = false
+                        }
+                    },
+
+                    onClose = {
+                        viewModel.processCommand(
+                            SubscriptionCommand.InputTopic("")
                         )
 
                         isAddingTopic = false
                     }
-                },
+                )
+            }
 
-                onClose = {
-                    viewModel.processCommand(
-                        SubscriptionCommand.InputTopic("")
-                    )
+            AnimatedVisibility(
+                visible = !isAddingTopic,
 
-                    isAddingTopic = false
-                }
-            )
-        }
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = 20.dp,
+                        bottom = 20.dp +
+                                WindowInsets.navigationBars
+                                    .asPaddingValues()
+                                    .calculateBottomPadding()
+                    ),
 
-        AnimatedVisibility(
-            visible = !isAddingTopic,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
+            ) {
 
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 20.dp,
-                    bottom = 20.dp +
-                            WindowInsets.navigationBars
-                                .asPaddingValues()
-                                .calculateBottomPadding()
-                ),
-
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut()
-        ) {
-
-            AddTopicFloatingButton(
-                onClick = {
-                    isAddingTopic = true
-                }
-            )
+                AddTopicFloatingButton(
+                    onClick = {
+                        isAddingTopic = true
+                    }
+                )
+            }
         }
     }
 }
@@ -320,7 +362,9 @@ fun SubscriptionsScreen(
 
 @Composable
 private fun FeedHeader(
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    isRefreshing: Boolean = false  // ← НОВЫЙ ПАРАМЕТР
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -368,22 +412,166 @@ private fun FeedHeader(
             )
         }
 
-        IconButton(
-            onClick = onRefresh,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant
-                )
+        // КНОПКИ В ПРАВОМ УГЛУ
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
         ) {
+            // Кнопка настроек
+            PremiumIconButton(
+                icon = Icons.Outlined.Settings,
+                contentDescription = "Настройки",
+                onClick = onNavigateToSettings
+            )
 
+            // ✅ Кнопка обновления со спиннером
+            RefreshIconButton(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh
+            )
+        }
+
+    }
+}
+
+/**
+ * Премиум-кнопка обновления с анимированным спиннером.
+ *
+ * Когда [isRefreshing] = true:
+ * - Показывает крутящийся индикатор
+ * - Кнопка некликабельна
+ *
+ * Когда [isRefreshing] = false:
+ * - Показывает иконку обновления
+ * - Кликабельна
+ */
+@Composable
+private fun RefreshIconButton(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "refresh_scale"
+    )
+
+    val animatedColor by animateColorAsState(
+        targetValue = when {
+            isRefreshing -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            else -> MaterialTheme.colorScheme.surface
+        },
+        animationSpec = tween(150),
+        label = "refresh_color"
+    )
+
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(CircleShape)
+            .background(animatedColor)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = CircleShape
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = !isRefreshing,
+                onClick = onRefresh
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isRefreshing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
             Icon(
                 imageVector = Icons.Outlined.Refresh,
                 contentDescription = "Обновить",
-                tint = MaterialTheme.colorScheme.onSurface
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp)
             )
         }
+    }
+}
+@Composable
+private fun PremiumIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    // Состояние нажатия для анимации
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Анимация масштаба при нажатии
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "icon_scale"
+    )
+
+    // Анимация цвета фона при нажатии
+    val animatedColor by animateColorAsState(
+        targetValue = if (isPressed) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+        } else {
+            containerColor
+        },
+        animationSpec = tween(150),
+        label = "icon_color"
+    )
+
+    Box(
+        modifier = modifier
+            .size(48.dp)  // Стандартный размер для иконок в Material 3
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(CircleShape)
+            .background(animatedColor)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = CircleShape
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,  // Убираем стандартный ripple, у нас своя анимация
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 

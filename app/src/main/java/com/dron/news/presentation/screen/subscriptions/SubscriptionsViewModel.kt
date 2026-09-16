@@ -47,8 +47,7 @@ class SubscriptionsViewModel @Inject constructor(
         when(command) {
             SubscriptionCommand.ClearArticles -> {
                 viewModelScope.launch {
-                    val topics = state.value.selectedTopics
-                        clearAllArticlesUseCase(topics)
+                    clearAllArticlesUseCase()   // ← без параметров
                 }
             }
             SubscriptionCommand.ClickSubscribe -> {
@@ -67,7 +66,12 @@ class SubscriptionsViewModel @Inject constructor(
             }
             SubscriptionCommand.RefreshData -> {
                 viewModelScope.launch {
-                    updateSubscribedArticlesUseCase()
+                    _state.update { it.copy(isRefreshing = true) }  // ← старт
+                    try {
+                        updateSubscribedArticlesUseCase()
+                    } finally {
+                        _state.update { it.copy(isRefreshing = false) }  // ← конец
+                    }
                 }
             }
             is SubscriptionCommand.RemoveSubscription -> {
@@ -126,7 +130,8 @@ sealed interface SubscriptionCommand{
 data class SubscriptionsState(
     val query: String = "",
     val subscriptions: Map<String, Boolean> = mapOf(),
-    val articles: List<Article> = listOf()
+    val articles: List<Article> = listOf(),
+    val isRefreshing: Boolean = false  // ← НОВОЕ ПОЛЕ
 ) {
     val subscribeButtonEnabled: Boolean
         get() = query.isNotBlank()

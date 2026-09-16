@@ -4,9 +4,9 @@ import com.dron.news.domain.repository.SettingsRepository
 import javax.inject.Inject
 
 class UpdateWifiOnlyUseCase @Inject constructor(
-    private val settingRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) {
-    suspend fun invoke(wifiOnly: Boolean){
-        settingRepository.updateWifiOnly(wifiOnly)
+    suspend operator fun invoke(wifiOnly: Boolean) {
+        settingsRepository.updateWifiOnly(wifiOnly)
     }
 }

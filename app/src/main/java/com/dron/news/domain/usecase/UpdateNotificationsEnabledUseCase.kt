@@ -4,9 +4,9 @@ import com.dron.news.domain.repository.SettingsRepository
 import javax.inject.Inject
 
 class UpdateNotificationsEnabledUseCase @Inject constructor(
-    private val settingRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) {
-    suspend fun invoke(enabled: Boolean){
-        settingRepository.updateNotificationsEnables(enabled)
+    suspend operator fun invoke(enabled: Boolean) {
+        settingsRepository.updateNotificationsEnables(enabled)
     }
 }

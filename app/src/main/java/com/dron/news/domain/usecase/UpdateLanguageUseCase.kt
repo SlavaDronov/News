@@ -2,11 +2,12 @@ package com.dron.news.domain.usecase
 
 import com.dron.news.domain.entity.Language
 import com.dron.news.domain.repository.SettingsRepository
+import javax.inject.Inject
 
-class UpdateLanguageUseCase(
-    private val settingRepository: SettingsRepository
+class UpdateLanguageUseCase @Inject constructor(
+    private val settingsRepository: SettingsRepository
 ) {
-    suspend fun invoke(language: Language){
-        settingRepository.updateLanguage(language)
+    suspend operator fun invoke(language: Language) {
+        settingsRepository.updateLanguage(language)
     }
 }
