@@ -1,5 +1,11 @@
 # 📰 News — персональная лента новостей
 
+![Android](https://img.shields.io/badge/Platform-Android-green.svg)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-blue.svg)
+![Compose](https://img.shields.io/badge/Jetpack%20Compose-2026.02-brightgreen.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![API](https://img.shields.io/badge/API-26%2B-orange.svg)
+
 Android-приложение для чтения новостей по интересующим темам. Написано на **Kotlin** с использованием **Jetpack Compose**, **Clean Architecture** и **Hilt**.
 
 ---
@@ -29,7 +35,12 @@ Android-приложение для чтения новостей по инте�
 
 ## 🏗️ Архитектура
 
-Проект использует **Clean Architecture** с тремя слоями:
+Проект использует **Clean Architecture** с тремя слоями + паттерн **MVVM**:
+
+- ✅ **Clean Architecture** — разделение на data/domain/presentation
+- ✅ **MVVM** — ViewModel + StateFlow для UI
+- ✅ **Repository Pattern** — абстракция над источниками данных
+- ✅ **Use Cases** — 17 штук, инкапсулируют бизнес-логику
 
 ```
 app/src/main/java/com/dron/news/
@@ -45,7 +56,7 @@ app/src/main/java/com/dron/news/
 │   └── usecase/            # Use Cases (AddSubscription, UpdateLanguage, ...)
 ├── presentation/            # Presentation Layer
 │   ├── navigation/         # NavHost, Routes
-│   ├── screen/             # Экраны (Compose)
+│   ├── screen/             # Экраны (Compose + ViewModel)
 │   │   ├── subscriptions/  # Главный экран
 │   │   └── settings/       # Экран настроек
 │   ├── startup/            # AppStartupManager
