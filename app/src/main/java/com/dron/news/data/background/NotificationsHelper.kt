@@ -1,0 +1,71 @@
+package com.dron.news.data.background
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.content.getSystemService
+import com.dron.news.R
+import com.dron.news.presentation.MainActivity
+import com.dron.news.presentation.screen.subscriptions.SubscriptionCommand
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+
+class NotificationsHelper @Inject constructor(
+    @param:ApplicationContext private val context: Context
+) {
+    private val notificationManager=
+        context.getSystemService<NotificationManager>()
+
+    init {
+        createNotificationChannel()
+    }
+
+    fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            context.getString(R.string.new_articles),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Уведомления о новых статьях"
+        }
+
+        notificationManager?.createNotificationChannel(channel)
+    }
+
+    fun showNewArticlesNotification(topic: List<String>) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            PENDING_INTENT_RC,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_breaking_news)
+            .setContentTitle(context.getString(R.string.new_articles_notification_title))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setContentText(
+                context.getString(
+                    R.string.update_subscriptions,
+                    topic.size,
+                    topic.joinToString(", ")
+                )
+            )
+            .build()
+        notificationManager?.notify(NOTIFICATION_ID, notification)
+    }
+
+    companion object {
+        const val CHANNEL_ID = "new_articles"
+        const val NOTIFICATION_ID = 1
+        const val PENDING_INTENT_RC = 1
+    }
+
+}
