@@ -35,10 +35,11 @@ Android-приложение для чтения новостей по инте�
 
 ## 🏗️ Архитектура
 
-Проект использует **Clean Architecture** с тремя слоями + паттерн **MVVM**:
+Проект использует **Clean Architecture** с тремя слоями + паттерн **MVVM/MVI**:
 
 - ✅ **Clean Architecture** — разделение на data/domain/presentation
 - ✅ **MVVM** — ViewModel + StateFlow для UI
+- ✅ **MVI** — Command + State (sealed interface) для предсказуемости
 - ✅ **Repository Pattern** — абстракция над источниками данных
 - ✅ **Use Cases** — 17 штук, инкапсулируют бизнес-логику
 
@@ -251,7 +252,50 @@ fun observeSelectedTopics() {
 }
 ```
 
-### 4. **Премиум-UI компоненты**
+### 4. **MVI в SettingsViewModel**
+Настройки используют паттерн **MVI** (Model-View-Intent):
+
+```kotlin
+// Команды — единая точка входа
+sealed interface SettingsCommand {
+    data class SelectLanguage(val language: Language) : SettingsCommand
+    data class SelectInterval(val interval: Interval) : SettingsCommand
+    data class SetNotificationsEnabled(val enabled: Boolean) : SettingsCommand
+    data class SetWifiOnly(val wifiOnly: Boolean) : SettingsCommand
+}
+
+// ViewModel обрабатывает команды
+fun processCommand(command: SettingsCommand) {
+    viewModelScope.launch {
+        when (command) {
+            is SettingsCommand.SelectLanguage -> {
+                updateLanguageUseCase(command.language)
+                clearAllArticlesUseCase()
+                updateSubscribedArticlesUseCase()
+            }
+            is SettingsCommand.SelectInterval -> {
+                updateIntervalUseCase(command.interval)
+                restartRefreshWorkerUseCase()
+            }
+            is SettingsCommand.SetNotificationsEnabled -> {
+                updateNotificationsEnabledUseCase(command.enabled)
+            }
+            is SettingsCommand.SetWifiOnly -> {
+                updateWifiOnlyUseCase(command.wifiOnly)
+                restartRefreshWorkerUseCase()
+            }
+        }
+    }
+}
+```
+
+**Преимущества MVI:**
+- ✅ **Единая точка входа** — все действия через `processCommand`
+- ✅ **Type-safe** — `sealed interface` покрывает все случаи
+- ✅ **Легко тестировать** — все команды в одном `when`
+- ✅ **Легко логировать** — одна точка для аналитики
+
+### 5. **Премиум-UI компоненты**
 - Анимированные кнопки с эффектом нажатия
 - Спиннер в кнопке обновления
 - Snackbar с результатом обновления
@@ -321,6 +365,7 @@ fun observeSelectedTopics() {
 - [x] Фоновое обновление (WorkManager)
 - [x] Push-уведомления
 - [x] Смена языка
+- [x] MVI в SettingsViewModel
 - [ ] Экран деталей статьи
 - [ ] Тёмная тема
 - [ ] Избранное
