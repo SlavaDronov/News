@@ -118,7 +118,7 @@ fun SettingsScreen(
                     title = "Уведомления",
                     subtitle = "Показывать уведомления о новых статьях",
                     checked = settings.notificationEnabled,
-                    onCheckedChange = { viewModel.setNotificationsEnabled(it) }
+                    onCheckedChange = { viewModel.processCommand(SettingsCommand.SetNotificationsEnabled(it)) }
                 )
             }
 
@@ -131,7 +131,7 @@ fun SettingsScreen(
                     title = "Только Wi-Fi",
                     subtitle = "Загружать данные только по Wi-Fi",
                     checked = settings.wifiOnly,
-                    onCheckedChange = { viewModel.setWifiOnly(it) }
+                    onCheckedChange = { viewModel.processCommand(SettingsCommand.SetWifiOnly(it)) }
                 )
             }
         }
@@ -147,7 +147,7 @@ fun SettingsScreen(
             selected = settings.language,
             displayName = { it.displayName() },
             onSelect = {
-                viewModel.setLanguage(it)
+                viewModel.processCommand(SettingsCommand.SelectLanguage(it))
                 showLanguageDialog = false
             },
             onDismiss = { showLanguageDialog = false }
@@ -164,7 +164,7 @@ fun SettingsScreen(
             selected = settings.interval,
             displayName = { it.displayName() },
             onSelect = {
-                viewModel.setInterval(it)
+                viewModel.processCommand(SettingsCommand.SelectInterval(it))
                 showIntervalDialog = false
             },
             onDismiss = { showIntervalDialog = false }

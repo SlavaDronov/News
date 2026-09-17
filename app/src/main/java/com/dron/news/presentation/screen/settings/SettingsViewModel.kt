@@ -7,7 +7,7 @@ import com.dron.news.domain.entity.Language
 import com.dron.news.domain.entity.Settings
 import com.dron.news.domain.usecase.ClearAllArticlesUseCase
 import com.dron.news.domain.usecase.GetSettingsUseCase
-import com.dron.news.domain.usecase.RestartRefreshWorkerUseCase   // ← НОВЫЙ
+import com.dron.news.domain.usecase.RestartRefreshWorkerUseCase
 import com.dron.news.domain.usecase.UpdateIntervalUseCase
 import com.dron.news.domain.usecase.UpdateLanguageUseCase
 import com.dron.news.domain.usecase.UpdateNotificationsEnabledUseCase
@@ -28,7 +28,7 @@ class SettingsViewModel @Inject constructor(
     private val updateNotificationsEnabledUseCase: UpdateNotificationsEnabledUseCase,
     private val updateWifiOnlyUseCase: UpdateWifiOnlyUseCase,
     private val restartRefreshWorkerUseCase: RestartRefreshWorkerUseCase,
-    private val clearAllArticlesUseCase: ClearAllArticlesUseCase,          // ← НОВЫЙ
+    private val clearAllArticlesUseCase: ClearAllArticlesUseCase,
     private val updateSubscribedArticlesUseCase: UpdateSubscribedArticlesUseCase
 ) : ViewModel() {
 
@@ -39,44 +39,33 @@ class SettingsViewModel @Inject constructor(
             initialValue = Settings.DEFAULT
         )
 
-    /**
-     * Язык: очищаем БД + сразу загружаем новые статьи
-     * Worker НЕ перезапускаем — он сам читает настройки
-     */
-    fun setLanguage(language: Language) {
+    fun processCommand(command: SettingsCommand) {
         viewModelScope.launch {
-            updateLanguageUseCase(language)
-            clearAllArticlesUseCase()              // ← ОЧИСТИТЬ
-            updateSubscribedArticlesUseCase()      // ← ЗАГРУЗИТЬ
+            when (command) {
+                is SettingsCommand.SelectLanguage -> {
+                    updateLanguageUseCase(command.language)
+                    clearAllArticlesUseCase()
+                    updateSubscribedArticlesUseCase()
+                }
+                is SettingsCommand.SelectInterval -> {
+                    updateIntervalUseCase(command.interval)
+                    restartRefreshWorkerUseCase()
+                }
+                is SettingsCommand.SetNotificationsEnabled -> {
+                    updateNotificationsEnabledUseCase(command.enabled)
+                }
+                is SettingsCommand.SetWifiOnly -> {
+                    updateWifiOnlyUseCase(command.wifiOnly)
+                    restartRefreshWorkerUseCase()
+                }
+            }
         }
     }
+}
 
-    /**
-     * Интервал: меняется расписание → перезапуск Worker ОБЯЗАТЕЛЕН
-     */
-    fun setInterval(interval: Interval) {
-        viewModelScope.launch {
-            updateIntervalUseCase(interval)
-            restartRefreshWorkerUseCase()
-        }
-    }
-
-    /**
-     * Уведомления: ничего перезапускать не нужно
-     */
-    fun setNotificationsEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            updateNotificationsEnabledUseCase(enabled)
-        }
-    }
-
-    /**
-     * Wi-Fi: меняются constraints → перезапуск Worker ОБЯЗАТЕЛЕН
-     */
-    fun setWifiOnly(wifiOnly: Boolean) {
-        viewModelScope.launch {
-            updateWifiOnlyUseCase(wifiOnly)
-            restartRefreshWorkerUseCase()
-        }
-    }
+sealed interface SettingsCommand {
+    data class SelectLanguage(val language: Language) : SettingsCommand
+    data class SelectInterval(val interval: Interval) : SettingsCommand
+    data class SetNotificationsEnabled(val enabled: Boolean) : SettingsCommand
+    data class SetWifiOnly(val wifiOnly: Boolean) : SettingsCommand
 }
