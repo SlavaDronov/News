@@ -22,23 +22,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NewsTheme {
-
-                // ✅ Запрос разрешения на уведомления (Android 13+)
-                val permissionLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted ->
-                        Log.d("MainActivity", "Notification permission: $isGranted")
-                    }
-                )
-
-                LaunchedEffect(Unit) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissionLauncher.launch(
-                            android.Manifest.permission.POST_NOTIFICATIONS
-                        )
-                    }
-                }
-
                 // ✅ Навигация между экранами
                 NewsNavHost()
             }

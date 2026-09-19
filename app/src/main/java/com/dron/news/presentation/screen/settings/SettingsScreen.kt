@@ -1,5 +1,10 @@
 package com.dron.news.presentation.screen.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,32 +25,58 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dron.news.domain.entity.Interval
 import com.dron.news.domain.entity.Language
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val context = LocalContext.current   // ← нужен для проверки разрешения
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showIntervalDialog by remember { mutableStateOf(false) }
 
+    // ← Launcher с обработкой отказа
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (!isGranted) {
+                // Показать сообщение
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Разрешение не дано. Уведомления не будут приходить."
+                    )
+                }
+                // Откатить настройку
+                viewModel.processCommand(SettingsCommand.SetNotificationsEnabled(false))
+            }
+        }
+    )
+
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
@@ -69,6 +100,7 @@ fun SettingsScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
 
@@ -118,7 +150,23 @@ fun SettingsScreen(
                     title = "Уведомления",
                     subtitle = "Показывать уведомления о новых статьях",
                     checked = settings.notificationEnabled,
-                    onCheckedChange = { viewModel.processCommand(SettingsCommand.SetNotificationsEnabled(it)) }
+                    onCheckedChange = { enabled ->
+                        // 1. Если включаем — проверяем разрешение
+                        if (enabled) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val permission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
+                                if (permission != PackageManager.PERMISSION_GRANTED) {
+                                    // ← Запрашиваем разрешение
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        }
+                        // 2. Сохраняем настройку в DataStore
+                        viewModel.processCommand(SettingsCommand.SetNotificationsEnabled(enabled))
+                    }
                 )
             }
 

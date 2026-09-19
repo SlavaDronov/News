@@ -7,31 +7,40 @@ import androidx.navigation.compose.rememberNavController
 import com.dron.news.presentation.screen.settings.SettingsScreen
 import com.dron.news.presentation.screen.subscriptions.SubscriptionsScreen
 
-object Routes {
-    const val SUBSCRIPTIONS = "subscriptions"
-    const val SETTINGS = "settings"
-}
-
 @Composable
 fun NewsNavHost() {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Routes.SUBSCRIPTIONS
+        startDestination = Screen.Subscriptions.route
     ) {
-        composable(Routes.SUBSCRIPTIONS) {
+        composable(Screen.Subscriptions.route) {
             SubscriptionsScreen(
                 onNavigateToSettings = {
-                    navController.navigate(Routes.SETTINGS)
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
 
-        composable(Routes.SETTINGS) {
+        composable(Screen.Settings.route) {
             SettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }
     }
+}
+
+sealed class Screen(val route: String) {
+    // Простые экраны (без параметров)
+    data object Subscriptions : Screen("subscriptions")
+    data object Settings : Screen("settings")
+
+    // Экраны с параметрами (когда добавите)
+    // data class ArticleDetails(val articleId: Long) : Screen("article/$articleId") {
+    //     companion object {
+    //         const val ROUTE = "article/{articleId}"
+    //         const val ARG_ID = "articleId"
+    //     }
+    // }
 }
